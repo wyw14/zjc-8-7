@@ -242,12 +242,17 @@ createApp({
           targetForm: task.targetForm,
           status: task.status
         };
-        selectedDreamForTask.value = null;
+        const sourceDream = dreams.value.find(d => d.id === task.dreamId);
+        selectedDreamForTask.value = sourceDream || null;
       } else {
+        if (!dream) {
+          alert('请选择一个梦境后再创建任务');
+          return;
+        }
         editingTask.value = null;
         selectedDreamForTask.value = dream;
         taskForm.value = {
-          title: dream ? dream.content.slice(0, 20) + '...' : '',
+          title: dream.content.slice(0, 20) + '...',
           targetForm: '',
           status: 'pending'
         };
@@ -283,11 +288,15 @@ createApp({
             body: JSON.stringify(taskForm.value)
           });
         } else {
+          if (!selectedDreamForTask.value) {
+            alert('创建任务必须绑定原始梦境');
+            return;
+          }
           await apiRequest('/tasks', {
             method: 'POST',
             body: JSON.stringify({
               ...taskForm.value,
-              dreamId: selectedDreamForTask.value ? selectedDreamForTask.value.id : null
+              dreamId: selectedDreamForTask.value.id
             })
           });
         }

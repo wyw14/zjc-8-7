@@ -161,7 +161,6 @@
         <div v-if="showTaskBoard" class="task-board">
           <div class="section-header">
             <h2>🎯 梦境任务板</h2>
-            <button class="btn-primary btn-small" @click="openTaskModal()">➕ 新建任务</button>
           </div>
 
           <div class="task-columns">
@@ -254,11 +253,11 @@
     <div v-if="showTaskModal" class="modal-overlay" @click.self="closeTaskModal">
       <div class="modal">
         <div class="modal-header">
-          <h3>{{ editingTask ? '✏️ 编辑任务' : '🎯 新建任务' }}</h3>
+          <h3>{{ editingTask ? '✏️ 编辑任务' : '🎯 转化为任务' }}</h3>
           <button class="modal-close" @click="closeTaskModal">×</button>
         </div>
         <div class="modal-body">
-          <div v-if="selectedDreamForTask" class="source-dream">
+          <div class="source-dream">
             <div class="source-dream-label">来源梦境：</div>
             <div class="source-dream-content">"{{ selectedDreamForTask.content }}"</div>
           </div>

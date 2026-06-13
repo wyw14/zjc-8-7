@@ -237,15 +237,24 @@ app.get('/api/tasks/incomplete', authenticateToken, (req, res) => {
 
 app.post('/api/tasks', authenticateToken, (req, res) => {
   const { dreamId, title, targetForm, status } = req.body;
+  if (!dreamId) {
+    return res.status(400).json({ error: '创建任务必须绑定原始梦境' });
+  }
   if (!title || !targetForm) {
     return res.status(400).json({ error: '任务标题和目标形式必填' });
+  }
+
+  const dreams = readJSON(DREAMS_FILE);
+  const dream = dreams.find(d => d.id === dreamId && d.userId === req.user.id);
+  if (!dream) {
+    return res.status(404).json({ error: '对应的梦境不存在或不属于当前用户' });
   }
 
   const tasks = readJSON(TASKS_FILE);
   const newTask = {
     id: tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1,
     userId: req.user.id,
-    dreamId: dreamId || null,
+    dreamId: dreamId,
     title,
     targetForm,
     status: status || 'pending',
