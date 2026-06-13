@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>梦境碎片收集系统</title>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,6 +31,10 @@
       <header class="header">
         <div class="header-left">
           <span class="logo">🌙 梦境碎片</span>
+          <nav class="nav-tabs">
+            <button class="nav-tab" :class="{ active: !showTaskBoard }" @click="showTaskBoard = false">📚 梦境</button>
+            <button class="nav-tab" :class="{ active: showTaskBoard }" @click="showTaskBoard = true">🎯 任务板 <span v-if="incompleteTasks.length > 0" class="badge">{{ incompleteTasks.length }}</span></button>
+          </nav>
         </div>
         <div class="header-right">
           <button class="btn-icon" @click="toggleWhiteNoise" :class="{ active: isPlaying }">
@@ -69,7 +72,30 @@
           </div>
         </div>
 
-        <div class="two-columns">
+        <div v-if="!showTaskBoard && incompleteTasks.length > 0" class="card tasks-section">
+          <div class="section-header">
+            <h2>🎯 进行中的任务</h2>
+            <button class="btn-outline btn-small" @click="showTaskBoard = true">查看全部 →</button>
+          </div>
+          <div class="task-list-inline">
+            <div v-for="task in incompleteTasks.slice(0, 3)" :key="task.id" class="task-item-inline">
+              <div class="task-status-dot" :class="getStatusClass(task.status)"></div>
+              <div class="task-info-inline">
+                <div class="task-title-inline">{{ task.title }}</div>
+                <div class="task-meta-inline">
+                  <span class="target-form">{{ task.targetForm }}</span>
+                  <span class="task-status" :class="getStatusClass(task.status)">{{ getStatusText(task.status) }}</span>
+                </div>
+              </div>
+              <div class="task-actions-inline">
+                <button v-if="task.dreamId" class="btn-text" @click="viewDreamFromTask(task)" title="查看原始梦境">🔗 源梦境</button>
+                <button class="btn-text" @click="openTaskModal(null, task)">✏️</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!showTaskBoard" class="two-columns">
           <div class="card">
             <h2>✨ 随机灵感</h2>
             <div v-if="randomDream" class="random-dream">
@@ -113,7 +139,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div v-if="!showTaskBoard" class="card">
           <h2>📚 梦境列表</h2>
           <div v-if="dreams.length === 0" class="empty-dream">还没有记录梦境</div>
           <div v-else class="dream-list">
@@ -125,13 +151,165 @@
                 </span>
               </div>
               <div class="dream-text">{{ dream.content }}</div>
+              <div class="dream-actions">
+                <button class="btn-outline btn-small" @click="openTaskModal(dream)">🎯 转化为任务</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="showTaskBoard" class="task-board">
+          <div class="section-header">
+            <h2>🎯 梦境任务板</h2>
+            <button class="btn-primary btn-small" @click="openTaskModal()">➕ 新建任务</button>
+          </div>
+
+          <div class="task-columns">
+            <div class="task-column">
+              <div class="column-header">
+                <span class="column-dot status-pending"></span>
+                <h3>待开始</h3>
+                <span class="column-count">{{ tasks.filter(t => t.status === 'pending').length }}</span>
+              </div>
+              <div class="column-cards">
+                <div v-for="task in tasks.filter(t => t.status === 'pending')" :key="task.id" class="task-card">
+                  <div class="task-card-header">
+                    <h4>{{ task.title }}</h4>
+                    <span class="target-badge">{{ task.targetForm }}</span>
+                  </div>
+                  <div v-if="task.dreamId" class="task-card-dream">
+                    <button class="btn-text" @click="viewDreamFromTask(task)">🔗 查看原始梦境</button>
+                  </div>
+                  <div class="task-card-footer">
+                    <span class="task-date">{{ new Date(task.createdAt).toLocaleDateString() }}</span>
+                    <div class="task-card-actions">
+                      <button class="btn-text" @click="updateTaskStatus(task, 'in_progress')">▶️ 开始</button>
+                      <button class="btn-text" @click="openTaskModal(null, task)">✏️</button>
+                      <button class="btn-text" @click="deleteTask(task.id)">🗑️</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-column">
+              <div class="column-header">
+                <span class="column-dot status-progress"></span>
+                <h3>进行中</h3>
+                <span class="column-count">{{ tasks.filter(t => t.status === 'in_progress').length }}</span>
+              </div>
+              <div class="column-cards">
+                <div v-for="task in tasks.filter(t => t.status === 'in_progress')" :key="task.id" class="task-card">
+                  <div class="task-card-header">
+                    <h4>{{ task.title }}</h4>
+                    <span class="target-badge">{{ task.targetForm }}</span>
+                  </div>
+                  <div v-if="task.dreamId" class="task-card-dream">
+                    <button class="btn-text" @click="viewDreamFromTask(task)">🔗 查看原始梦境</button>
+                  </div>
+                  <div class="task-card-footer">
+                    <span class="task-date">{{ new Date(task.createdAt).toLocaleDateString() }}</span>
+                    <div class="task-card-actions">
+                      <button class="btn-text" @click="updateTaskStatus(task, 'completed')">✅ 完成</button>
+                      <button class="btn-text" @click="updateTaskStatus(task, 'pending')">⏸️</button>
+                      <button class="btn-text" @click="openTaskModal(null, task)">✏️</button>
+                      <button class="btn-text" @click="deleteTask(task.id)">🗑️</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="task-column">
+              <div class="column-header">
+                <span class="column-dot status-completed"></span>
+                <h3>已完成</h3>
+                <span class="column-count">{{ tasks.filter(t => t.status === 'completed').length }}</span>
+              </div>
+              <div class="column-cards">
+                <div v-for="task in tasks.filter(t => t.status === 'completed')" :key="task.id" class="task-card completed">
+                  <div class="task-card-header">
+                    <h4>{{ task.title }}</h4>
+                    <span class="target-badge">{{ task.targetForm }}</span>
+                  </div>
+                  <div v-if="task.dreamId" class="task-card-dream">
+                    <button class="btn-text" @click="viewDreamFromTask(task)">🔗 查看原始梦境</button>
+                  </div>
+                  <div class="task-card-footer">
+                    <span class="task-date">{{ new Date(task.createdAt).toLocaleDateString() }}</span>
+                    <div class="task-card-actions">
+                      <button class="btn-text" @click="updateTaskStatus(task, 'in_progress')">↩️</button>
+                      <button class="btn-text" @click="openTaskModal(null, task)">✏️</button>
+                      <button class="btn-text" @click="deleteTask(task.id)">🗑️</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </main>
     </div>
+
+    <div v-if="showTaskModal" class="modal-overlay" @click.self="closeTaskModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ editingTask ? '✏️ 编辑任务' : '🎯 新建任务' }}</h3>
+          <button class="modal-close" @click="closeTaskModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="selectedDreamForTask" class="source-dream">
+            <div class="source-dream-label">来源梦境：</div>
+            <div class="source-dream-content">"{{ selectedDreamForTask.content }}"</div>
+          </div>
+          <div class="form-group">
+            <label>任务标题</label>
+            <input v-model="taskForm.title" type="text" placeholder="给这个创作任务起个名字">
+          </div>
+          <div class="form-group">
+            <label>目标形式</label>
+            <select v-model="taskForm.targetForm">
+              <option value="">请选择目标形式</option>
+              <option v-for="form in targetFormOptions" :key="form" :value="form">{{ form }}</option>
+            </select>
+          </div>
+          <div v-if="editingTask" class="form-group">
+            <label>完成状态</label>
+            <select v-model="taskForm.status">
+              <option value="pending">待开始</option>
+              <option value="in_progress">进行中</option>
+              <option value="completed">已完成</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" @click="closeTaskModal">取消</button>
+          <button class="btn-primary" @click="saveTask">{{ editingTask ? '保存' : '创建' }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="viewingDream" class="modal-overlay" @click.self="closeDreamView">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>🌙 原始梦境</h3>
+          <button class="modal-close" @click="closeDreamView">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="dream-date">{{ viewingDream.date }}</div>
+          <div class="dream-lucidity">
+            清醒度: <span v-for="n in 5" :key="n" class="star">{{ n <= viewingDream.lucidity ? '★' : '☆' }}</span>
+          </div>
+          <div class="dream-content">"{{ viewingDream.content }}"</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-outline" @click="closeDreamView">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <script src="vue.global.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -6,12 +6,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const PORT = 3001;
+const PORT = 3107;
 const JWT_SECRET = 'dream-secret-key-2024';
 
 const DATA_DIR = path.join(__dirname, 'data');
 const DREAMS_FILE = path.join(DATA_DIR, 'dreams.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
 
 app.use(cors());
 app.use(express.json());
@@ -102,8 +103,36 @@ function initDreams() {
   }
 }
 
+function initTasks() {
+  const tasks = readJSON(TASKS_FILE);
+  if (tasks.length === 0) {
+    const sampleTasks = [
+      {
+        id: 1,
+        userId: 1,
+        dreamId: 1,
+        title: '紫色云海水晶城堡',
+        targetForm: '短篇科幻小说',
+        status: 'in_progress',
+        createdAt: '2026-06-02T10:30:00Z'
+      },
+      {
+        id: 2,
+        userId: 1,
+        dreamId: 3,
+        title: '海底漫步的奇幻世界',
+        targetForm: '水彩画',
+        status: 'pending',
+        createdAt: '2026-06-11T08:15:00Z'
+      }
+    ];
+    writeJSON(TASKS_FILE, sampleTasks);
+  }
+}
+
 initUsers();
 initDreams();
+initTasks();
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -192,6 +221,86 @@ app.get('/api/stats/monthly', authenticateToken, (req, res) => {
     count,
     avgLucidity: parseFloat(avgLucidity)
   });
+});
+
+app.get('/api/tasks', authenticateToken, (req, res) => {
+  const tasks = readJSON(TASKS_FILE).filter(t => t.userId === req.user.id);
+  res.json(tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+});
+
+app.get('/api/tasks/incomplete', authenticateToken, (req, res) => {
+  const tasks = readJSON(TASKS_FILE).filter(t =>
+    t.userId === req.user.id && t.status !== 'completed'
+  );
+  res.json(tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+});
+
+app.post('/api/tasks', authenticateToken, (req, res) => {
+  const { dreamId, title, targetForm, status } = req.body;
+  if (!title || !targetForm) {
+    return res.status(400).json({ error: '任务标题和目标形式必填' });
+  }
+
+  const tasks = readJSON(TASKS_FILE);
+  const newTask = {
+    id: tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1,
+    userId: req.user.id,
+    dreamId: dreamId || null,
+    title,
+    targetForm,
+    status: status || 'pending',
+    createdAt: new Date().toISOString()
+  };
+
+  tasks.push(newTask);
+  writeJSON(TASKS_FILE, tasks);
+  res.status(201).json(newTask);
+});
+
+app.put('/api/tasks/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { title, targetForm, status } = req.body;
+  const tasks = readJSON(TASKS_FILE);
+  const taskIndex = tasks.findIndex(t => t.id === parseInt(id) && t.userId === req.user.id);
+
+  if (taskIndex === -1) {
+    return res.status(404).json({ error: '任务不存在' });
+  }
+
+  tasks[taskIndex] = {
+    ...tasks[taskIndex],
+    title: title || tasks[taskIndex].title,
+    targetForm: targetForm || tasks[taskIndex].targetForm,
+    status: status || tasks[taskIndex].status
+  };
+
+  writeJSON(TASKS_FILE, tasks);
+  res.json(tasks[taskIndex]);
+});
+
+app.delete('/api/tasks/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const tasks = readJSON(TASKS_FILE);
+  const filteredTasks = tasks.filter(t => !(t.id === parseInt(id) && t.userId === req.user.id));
+
+  if (filteredTasks.length === tasks.length) {
+    return res.status(404).json({ error: '任务不存在' });
+  }
+
+  writeJSON(TASKS_FILE, filteredTasks);
+  res.json({ message: '删除成功' });
+});
+
+app.get('/api/dreams/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const dreams = readJSON(DREAMS_FILE);
+  const dream = dreams.find(d => d.id === parseInt(id) && d.userId === req.user.id);
+
+  if (!dream) {
+    return res.status(404).json({ error: '梦境不存在' });
+  }
+
+  res.json(dream);
 });
 
 app.listen(PORT, () => {

@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "userId": 1,
+    "dreamId": 1,
+    "title": "紫色云海水晶城堡",
+    "targetForm": "短篇科幻小说",
+    "status": "in_progress",
+    "createdAt": "2026-06-02T10:30:00Z"
+  },
+  {
+    "id": 2,
+    "userId": 1,
+    "dreamId": 3,
+    "title": "海底漫步的奇幻世界",
+    "targetForm": "水彩画",
+    "status": "completed",
+    "createdAt": "2026-06-11T08:15:00Z"
+  },
+  {
+    "id": 3,
+    "userId": 1,
+    "dreamId": 6,
+    "title": "星空下的奇幻冒险",
+    "targetForm": "短篇小说",
+    "status": "in_progress",
+    "createdAt": "2026-06-12T23:12:00.103Z"
+  }
+]
